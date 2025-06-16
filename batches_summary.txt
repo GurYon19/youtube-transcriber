@@ -1,0 +1,52 @@
+Batch Processing Summary
+=======================
+
+Total links: 96
+Batch size: 15
+Total batches: 7
+
+Batch files created:
+- links_batch_01.txt (links 1-15)
+- links_batch_02.txt (links 16-30)
+- links_batch_03.txt (links 31-45)
+- links_batch_04.txt (links 46-60)
+- links_batch_05.txt (links 61-75)
+- links_batch_06.txt (links 76-90)
+- links_batch_07.txt (links 91-96)
+
+To process each batch:
+1. Rename links_batch_01.txt to links.txt
+2. Run the transcription
+3. Backup/rename the results
+4. Repeat for next batch
+
+1. Rename links_batch_02.txt to links.txt
+2. Run the transcription
+3. Backup/rename the results
+4. Repeat for next batch
+
+1. Rename links_batch_03.txt to links.txt
+2. Run the transcription
+3. Backup/rename the results
+4. Repeat for next batch
+
+1. Rename links_batch_04.txt to links.txt
+2. Run the transcription
+3. Backup/rename the results
+4. Repeat for next batch
+
+1. Rename links_batch_05.txt to links.txt
+2. Run the transcription
+3. Backup/rename the results
+4. Repeat for next batch
+
+1. Rename links_batch_06.txt to links.txt
+2. Run the transcription
+3. Backup/rename the results
+4. Repeat for next batch
+
+1. Rename links_batch_07.txt to links.txt
+2. Run the transcription
+3. Backup/rename the results
+4. Repeat for next batch
+
