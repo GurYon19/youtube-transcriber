@@ -1,0 +1,51 @@
+name: YouTube Transcription
+
+on:
+  workflow_dispatch:  # Manual trigger
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM UTC (optional)
+
+jobs:
+  transcribe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360  # 6 hours max
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg
+        
+    - name: Install Python dependencies
+      run: |
+        pip install --upgrade pip
+        pip install openai-whisper pytubefix
+        
+    - name: Run transcription script
+      run: |
+        python a.py
+        
+    - name: Upload transcription results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: transcriptions
+        path: transcript_*.txt
+        retention-days: 30
+        
+    - name: Commit and push results (optional)
+      if: success()
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add transcript_*.txt
+        git diff --staged --quiet || git commit -m "Add new transcriptions [$(date)]"
+        git push
