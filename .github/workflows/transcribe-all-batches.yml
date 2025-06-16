@@ -69,13 +69,15 @@ jobs:
         
     - name: Prepare batch ${{ matrix.batch }}
       run: |
-        if [ -f "links_batch_${{ matrix.batch }}.txt" ]; then
-          cp links_batch_${{ matrix.batch }}.txt links.txt
-          echo "Processing batch ${{ matrix.batch }}"
+        BATCH_FILE="links_batch_$(printf "%02d" ${{ matrix.batch }}).txt"
+        if [ -f "$BATCH_FILE" ]; then
+          cp "$BATCH_FILE" links.txt
+          echo "Processing batch ${{ matrix.batch }} from file $BATCH_FILE"
           echo "Links in this batch:"
           cat links.txt | head -5
         else
-          echo "Batch file links_batch_${{ matrix.batch }}.txt not found"
+          echo "Batch file $BATCH_FILE not found"
+          ls -la links_batch_*.txt
           exit 1
         fi
         
@@ -113,8 +115,9 @@ jobs:
           git add transcript_*.txt
           
           # Create batch completion marker
-          echo "Batch ${{ matrix.batch }} completed at $(date)" > batch_${{ matrix.batch }}_completed.txt
-          git add batch_${{ matrix.batch }}_completed.txt
+          BATCH_MARKER="batch_$(printf "%02d" ${{ matrix.batch }})_completed.txt"
+          echo "Batch ${{ matrix.batch }} completed at $(date)" > "$BATCH_MARKER"
+          git add "$BATCH_MARKER"
           
           # Commit if there are changes
           git diff --staged --quiet || git commit -m "Complete batch ${{ matrix.batch }}: Add transcriptions [$(date)]"
@@ -149,8 +152,9 @@ jobs:
         
         echo "## Completed Batches:" >> processing_summary.md
         for i in {1..7}; do
-          if [ -f "batch_${i}_completed.txt" ]; then
-            echo "- ✅ Batch $i: $(cat batch_${i}_completed.txt)" >> processing_summary.md
+          BATCH_MARKER="batch_$(printf "%02d" $i)_completed.txt"
+          if [ -f "$BATCH_MARKER" ]; then
+            echo "- ✅ Batch $i: $(cat $BATCH_MARKER)" >> processing_summary.md
           else
             echo "- ❌ Batch $i: Not completed" >> processing_summary.md
           fi
