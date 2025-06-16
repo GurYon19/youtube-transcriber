@@ -19,17 +19,19 @@ def download_audio_from_youtube(url):
         print(f"Waiting {delay:.1f} seconds to avoid bot detection...")
         time.sleep(delay)
         
-        # Try multiple approaches to avoid bot detection
+        # Try multiple approaches to avoid bot detection (non-interactive first)
         approaches = [
-            # Approach 1: Use po_token and WEB client
-            lambda: YouTube(url, use_po_token=True, client='WEB'),
-            # Approach 2: Use WEB client only
+            # Approach 1: Use WEB client only (non-interactive)
             lambda: YouTube(url, client='WEB'),
-            # Approach 3: Use ANDROID client
+            # Approach 2: Use ANDROID client
             lambda: YouTube(url, client='ANDROID'),
-            # Approach 4: Default approach
+            # Approach 3: Default approach
             lambda: YouTube(url)
         ]
+        
+        # Add po_token approach only if running interactively (not in CI/batch mode)
+        if os.isatty(0):  # Check if stdin is connected to a terminal
+            approaches.append(lambda: YouTube(url, use_po_token=True, client='WEB'))
         
         yt = None
         last_error = None
@@ -123,13 +125,16 @@ def get_safe_video_title(url):
         # Add small delay
         time.sleep(random.uniform(0.5, 1.0))
         
-        # Try multiple approaches to get title
+        # Try multiple approaches to get title (non-interactive first)
         approaches = [
-            lambda: YouTube(url, use_po_token=True, client='WEB'),
             lambda: YouTube(url, client='WEB'),
             lambda: YouTube(url, client='ANDROID'),
             lambda: YouTube(url)
         ]
+        
+        # Add po_token approach only if running interactively
+        if os.isatty(0):
+            approaches.append(lambda: YouTube(url, use_po_token=True, client='WEB'))
         
         for i, approach in enumerate(approaches, 1):
             try:
