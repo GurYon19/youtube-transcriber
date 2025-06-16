@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  transcriber:
+    build: .
+    container_name: youtube-transcriber
+    volumes:
+      - ./:/app
+      - ./output:/app/output
+    environment:
+      - PYTHONUNBUFFERED=1
+    working_dir: /app 

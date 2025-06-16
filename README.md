@@ -35,16 +35,54 @@ This project automatically transcribes YouTube videos to Hebrew text using OpenA
 
 - `a.py` - Main transcription script
 - `links.txt` - YouTube URLs to process
-- `.github/workflows/transcribe.yml` - GitHub Actions workflow
+- `.github/workflows/transcribe.yml` - GitHub Actions workflow (manual setup)
+- `.github/workflows/transcribe-docker.yml` - GitHub Actions workflow (Docker)
 - `requirements.txt` - Python dependencies
+- `Dockerfile` - Docker container definition
+- `docker-compose.yml` - Docker Compose configuration
+- `.dockerignore` - Files to exclude from Docker build
+
+## Docker Advantages
+
+✅ **No dependency conflicts** - Everything runs in an isolated container  
+✅ **Cross-platform** - Works identically on Windows, Mac, Linux  
+✅ **Easy setup** - Just install Docker, no Python/ffmpeg setup needed  
+✅ **Clean environment** - No leftover files on your system  
+✅ **Reproducible** - Same results every time
 
 ## Local Usage
 
-To run locally instead:
+### Option 1: Using Docker (Recommended)
+
+**Prerequisites**: Install [Docker](https://www.docker.com/get-started)
+
+```bash
+# Build and run with Docker Compose
+docker-compose up --build
+
+# Or build and run manually
+docker build -t youtube-transcriber .
+docker run --rm -v $(pwd):/app/output youtube-transcriber
+```
+
+### Option 2: Direct Python Installation
 
 ```bash
 pip install -r requirements.txt
 python a.py
+```
+
+### Option 3: Using Docker on Windows
+
+```cmd
+# Build the image
+docker build -t youtube-transcriber .
+
+# Run on Windows (PowerShell)
+docker run --rm -v ${PWD}:/app/output youtube-transcriber
+
+# Run on Windows (Command Prompt)
+docker run --rm -v %cd%:/app/output youtube-transcriber
 ```
 
 ## Output
