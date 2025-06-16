@@ -1,23 +1,69 @@
 import os
+import time
+import random
+import re
 import whisper
 from pytubefix import YouTube
 
 def download_audio_from_youtube(url):
     """
     Downloads the audio track from a YouTube video and saves it as a file.
+    Includes bot detection workarounds.
     """
+    
     try:
         print(f"Downloading audio from link: {url}")
-        yt = YouTube(url)
+        
+        # Add random delay to avoid bot detection
+        delay = random.uniform(1, 3)
+        print(f"Waiting {delay:.1f} seconds to avoid bot detection...")
+        time.sleep(delay)
+        
+        # Try multiple approaches to avoid bot detection
+        approaches = [
+            # Approach 1: Use po_token and WEB client
+            lambda: YouTube(url, use_po_token=True, client='WEB'),
+            # Approach 2: Use WEB client only
+            lambda: YouTube(url, client='WEB'),
+            # Approach 3: Use ANDROID client
+            lambda: YouTube(url, client='ANDROID'),
+            # Approach 4: Default approach
+            lambda: YouTube(url)
+        ]
+        
+        yt = None
+        last_error = None
+        
+        for i, approach in enumerate(approaches, 1):
+            try:
+                print(f"Trying approach {i}/{len(approaches)}...")
+                yt = approach()
+                print(f"✅ Approach {i} successful!")
+                break
+            except Exception as e:
+                last_error = e
+                print(f"❌ Approach {i} failed: {e}")
+                if i < len(approaches):
+                    time.sleep(random.uniform(0.5, 1.5))
+                continue
+        
+        if not yt:
+            print(f"All approaches failed. Last error: {last_error}")
+            return None
         
         # Select the best quality audio stream
         audio_stream = yt.streams.get_audio_only()
+        
+        if not audio_stream:
+            print("No audio stream available for this video")
+            return None
         
         # Download the file (name will be automatically determined by video title)
         output_file = audio_stream.download()
         print(f"Audio saved to file: {output_file}")
         
         return output_file
+        
     except Exception as e:
         print(f"Error occurred while downloading video: {e}")
         return None
@@ -68,6 +114,49 @@ def save_transcript_to_file(transcript, video_title):
     print(f"Full transcript saved to file: {filename}")
     return filename
 
+def get_safe_video_title(url):
+    """
+    Safely gets the video title with bot detection workarounds.
+    """
+    
+    try:
+        # Add small delay
+        time.sleep(random.uniform(0.5, 1.0))
+        
+        # Try multiple approaches to get title
+        approaches = [
+            lambda: YouTube(url, use_po_token=True, client='WEB'),
+            lambda: YouTube(url, client='WEB'),
+            lambda: YouTube(url, client='ANDROID'),
+            lambda: YouTube(url)
+        ]
+        
+        for i, approach in enumerate(approaches, 1):
+            try:
+                yt = approach()
+                title = yt.title
+                print(f"Video title: {title}")
+                return title
+            except Exception as e:
+                print(f"Failed to get title with approach {i}: {e}")
+                if i < len(approaches):
+                    time.sleep(random.uniform(0.3, 0.8))
+                continue
+        
+        # Fallback: extract video ID from URL as title
+        video_id_match = re.search(r'(?:v=|/)([a-zA-Z0-9_-]{11})(?:\S+)?', url)
+        if video_id_match:
+            video_id = video_id_match.group(1)
+            print(f"Using video ID as title: {video_id}")
+            return f"video_{video_id}"
+        else:
+            print("Could not extract video ID, using generic title")
+            return f"video_{int(time.time())}"
+            
+    except Exception as e:
+        print(f"Error getting video title: {e}")
+        return f"video_{int(time.time())}"
+
 def read_links_from_file(file_path):
     """
     Reads all YouTube links from a text file.
@@ -95,8 +184,8 @@ def process_youtube_link(url, processed_count, total_count):
             # Step 2: Transcribe audio
             transcript = transcribe_audio_with_whisper(audio_file)
             
-            # Step 3: Save the result
-            video_title = YouTube(url).title
+            # Step 3: Get video title safely
+            video_title = get_safe_video_title(url)
             save_transcript_to_file(transcript, video_title)
             
             # Clean up temporary audio file
