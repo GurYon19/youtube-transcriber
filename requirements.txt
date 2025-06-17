@@ -1,4 +1,4 @@
 openai-whisper==20231117
-pytubefix>=6.0.0
+yt-dlp>=2024.1.0
 torch>=2.0.0
 torchaudio>=2.0.0 

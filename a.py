@@ -3,72 +3,84 @@ import time
 import random
 import re
 import whisper
-from pytubefix import YouTube
+import yt_dlp
+import json
 
 def download_audio_from_youtube(url):
     """
-    Downloads the audio track from a YouTube video and saves it as a file.
-    Includes bot detection workarounds.
+    Downloads the audio track from a YouTube video using yt-dlp.
+    More robust against bot detection.
+    Returns (audio_file_path, video_title) tuple.
     """
     
     try:
         print(f"Downloading audio from link: {url}")
         
         # Add random delay to avoid bot detection
-        delay = random.uniform(1, 3)
+        delay = random.uniform(2, 5)
         print(f"Waiting {delay:.1f} seconds to avoid bot detection...")
         time.sleep(delay)
         
-        # Try multiple approaches to avoid bot detection (non-interactive first)
-        approaches = [
-            # Approach 1: Use WEB client only (non-interactive)
-            lambda: YouTube(url, client='WEB'),
-            # Approach 2: Use ANDROID client
-            lambda: YouTube(url, client='ANDROID'),
-            # Approach 3: Default approach
-            lambda: YouTube(url)
-        ]
+        # Configure yt-dlp options for audio download
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'outtmpl': '%(title)s.%(ext)s',
+            'extractaudio': True,
+            'audioformat': 'mp3',
+            'audioquality': '192K',
+            'noplaylist': True,
+            'quiet': False,
+            'no_warnings': False,
+            # Bot detection avoidance
+            'extractor_args': {
+                'youtube': {
+                    'skip': ['hls', 'dash'],
+                    'player_client': ['android']
+                }
+            },
+            # Add user agent to look more like a real browser
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+        }
         
-        # Add po_token approach only if running interactively (not in CI/batch mode)
-        if os.isatty(0):  # Check if stdin is connected to a terminal
-            approaches.append(lambda: YouTube(url, use_po_token=True, client='WEB'))
-        
-        yt = None
-        last_error = None
-        
-        for i, approach in enumerate(approaches, 1):
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             try:
-                print(f"Trying approach {i}/{len(approaches)}...")
-                yt = approach()
-                print(f"✅ Approach {i} successful!")
-                break
-            except Exception as e:
-                last_error = e
-                print(f"❌ Approach {i} failed: {e}")
-                if i < len(approaches):
-                    time.sleep(random.uniform(0.5, 1.5))
-                continue
-        
-        if not yt:
-            print(f"All approaches failed. Last error: {last_error}")
-            return None
-        
-        # Select the best quality audio stream
-        audio_stream = yt.streams.get_audio_only()
-        
-        if not audio_stream:
-            print("No audio stream available for this video")
-            return None
-        
-        # Download the file (name will be automatically determined by video title)
-        output_file = audio_stream.download()
-        print(f"Audio saved to file: {output_file}")
-        
-        return output_file
-        
+                # Extract info first to get the title
+                print("Getting video info...")
+                info = ydl.extract_info(url, download=False)
+                video_title = info.get('title', 'Unknown Video')
+                print(f"Video title: {video_title}")
+                
+                # Download the audio
+                print("Downloading audio...")
+                ydl.download([url])
+                
+                # Find the downloaded file (yt-dlp may change the filename)
+                import glob
+                possible_files = glob.glob(f"{video_title[:50]}*")  # First 50 chars to avoid long filenames
+                if not possible_files:
+                    # Try broader search
+                    possible_files = glob.glob("*.mp3") + glob.glob("*.m4a") + glob.glob("*.webm")
+                    if possible_files:
+                        # Get the most recently created file
+                        output_file = max(possible_files, key=os.path.getctime)
+                    else:
+                        print("Could not find downloaded audio file")
+                        return None, None
+                else:
+                    output_file = possible_files[0]
+                
+                print(f"Audio saved to file: {output_file}")
+                return output_file, video_title
+                
+            except yt_dlp.utils.DownloadError as e:
+                print(f"yt-dlp download error: {e}")
+                return None, None
+                
     except Exception as e:
         print(f"Error occurred while downloading video: {e}")
-        return None
+        return None, None
 
 def transcribe_audio_with_whisper(audio_file_path):
     """
@@ -118,36 +130,32 @@ def save_transcript_to_file(transcript, video_title):
 
 def get_safe_video_title(url):
     """
-    Safely gets the video title with bot detection workarounds.
+    Safely gets the video title using yt-dlp.
     """
     
     try:
-        # Add small delay
-        time.sleep(random.uniform(0.5, 1.0))
+        print("Getting video title...")
         
-        # Try multiple approaches to get title (non-interactive first)
-        approaches = [
-            lambda: YouTube(url, client='WEB'),
-            lambda: YouTube(url, client='ANDROID'),
-            lambda: YouTube(url)
-        ]
+        # Configure yt-dlp for info extraction only
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android']
+                }
+            }
+        }
         
-        # Add po_token approach only if running interactively
-        if os.isatty(0):
-            approaches.append(lambda: YouTube(url, use_po_token=True, client='WEB'))
-        
-        for i, approach in enumerate(approaches, 1):
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             try:
-                yt = approach()
-                title = yt.title
+                info = ydl.extract_info(url, download=False)
+                title = info.get('title', 'Unknown Video')
                 print(f"Video title: {title}")
                 return title
             except Exception as e:
-                print(f"Failed to get title with approach {i}: {e}")
-                if i < len(approaches):
-                    time.sleep(random.uniform(0.3, 0.8))
-                continue
-        
+                print(f"Failed to get title with yt-dlp: {e}")
+                
         # Fallback: extract video ID from URL as title
         video_id_match = re.search(r'(?:v=|/)([a-zA-Z0-9_-]{11})(?:\S+)?', url)
         if video_id_match:
@@ -182,15 +190,14 @@ def process_youtube_link(url, processed_count, total_count):
     print(f"URL: {url}")
     
     try:
-        # Step 1: Download audio
-        audio_file = download_audio_from_youtube(url)
+        # Step 1: Download audio and get title
+        audio_file, video_title = download_audio_from_youtube(url)
         
-        if audio_file:
+        if audio_file and video_title:
             # Step 2: Transcribe audio
             transcript = transcribe_audio_with_whisper(audio_file)
             
-            # Step 3: Get video title safely
-            video_title = get_safe_video_title(url)
+            # Step 3: Save transcript
             save_transcript_to_file(transcript, video_title)
             
             # Clean up temporary audio file
