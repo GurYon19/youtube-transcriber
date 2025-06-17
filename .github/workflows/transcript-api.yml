@@ -1,0 +1,45 @@
+name: YouTube Transcription (Transcript API - Fast & Reliable)
+
+on:
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  transcribe-api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60  # Much faster - only 1 hour needed
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        
+    - name: Install Python dependencies
+      run: |
+        pip install --upgrade pip
+        pip install youtube-transcript-api
+        
+    - name: Run transcript extraction
+      run: |
+        echo "Using YouTube Transcript API - No bot detection issues!"
+        python alternative_transcript.py
+        
+    - name: Upload transcription results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: transcriptions-api
+        path: transcript_*.txt
+        retention-days: 30
+        
+    - name: Commit and push results
+      if: success()
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add transcript_*.txt
+        git diff --staged --quiet || git commit -m "Add transcriptions via API [$(date)]"
+        git push 
