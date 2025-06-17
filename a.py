@@ -21,7 +21,7 @@ def download_audio_from_youtube(url):
         print(f"Waiting {delay:.1f} seconds to avoid bot detection...")
         time.sleep(delay)
         
-        # Configure yt-dlp options for audio download
+        # Enhanced yt-dlp configuration with multiple anti-bot strategies
         ydl_opts = {
             'format': 'bestaudio/best',
             'outtmpl': '%(title)s.%(ext)s',
@@ -31,52 +31,94 @@ def download_audio_from_youtube(url):
             'noplaylist': True,
             'quiet': False,
             'no_warnings': False,
-            # Bot detection avoidance
+            # Advanced bot detection avoidance
             'extractor_args': {
                 'youtube': {
                     'skip': ['hls', 'dash'],
-                    'player_client': ['android']
+                    'player_client': ['ios', 'android', 'web'],
+                    'player_skip': ['configs'],
+                    'comment_sort': ['top'],
                 }
             },
-            # Add user agent to look more like a real browser
+            # Multiple fallback user agents
             'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Encoding': 'gzip, deflate',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+            },
+            # Additional anti-detection measures
+            'socket_timeout': 30,
+            'retries': 3,
+            'fragment_retries': 3,
+            'ignoreerrors': False,
+            # Try to avoid rate limiting
+            'sleep_interval': 2,
+            'max_sleep_interval': 5,
         }
         
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        # Try multiple client configurations as fallbacks
+        client_configs = [
+            {'player_client': ['ios']},
+            {'player_client': ['android']}, 
+            {'player_client': ['web']},
+            {'player_client': ['mweb']},
+        ]
+        
+        for i, client_config in enumerate(client_configs, 1):
             try:
-                # Extract info first to get the title
-                print("Getting video info...")
-                info = ydl.extract_info(url, download=False)
-                video_title = info.get('title', 'Unknown Video')
-                print(f"Video title: {video_title}")
+                print(f"Trying client configuration {i}/{len(client_configs)}: {client_config}")
                 
-                # Download the audio
-                print("Downloading audio...")
-                ydl.download([url])
+                # Update extractor args for this attempt
+                current_opts = ydl_opts.copy()
+                current_opts['extractor_args']['youtube'].update(client_config)
                 
-                # Find the downloaded file (yt-dlp may change the filename)
-                import glob
-                possible_files = glob.glob(f"{video_title[:50]}*")  # First 50 chars to avoid long filenames
-                if not possible_files:
-                    # Try broader search
-                    possible_files = glob.glob("*.mp3") + glob.glob("*.m4a") + glob.glob("*.webm")
-                    if possible_files:
-                        # Get the most recently created file
-                        output_file = max(possible_files, key=os.path.getctime)
-                    else:
-                        print("Could not find downloaded audio file")
-                        return None, None
-                else:
-                    output_file = possible_files[0]
-                
-                print(f"Audio saved to file: {output_file}")
-                return output_file, video_title
-                
-            except yt_dlp.utils.DownloadError as e:
-                print(f"yt-dlp download error: {e}")
-                return None, None
+                with yt_dlp.YoutubeDL(current_opts) as ydl:
+                    try:
+                        # Extract info first to get the title
+                        print("Getting video info...")
+                        info = ydl.extract_info(url, download=False)
+                        video_title = info.get('title', 'Unknown Video')
+                        print(f"Video title: {video_title}")
+                        
+                        # Download the audio
+                        print("Downloading audio...")
+                        ydl.download([url])
+                        
+                        # Find the downloaded file (yt-dlp may change the filename)
+                        import glob
+                        possible_files = glob.glob(f"{video_title[:50]}*")  # First 50 chars to avoid long filenames
+                        if not possible_files:
+                            # Try broader search
+                            possible_files = glob.glob("*.mp3") + glob.glob("*.m4a") + glob.glob("*.webm")
+                            if possible_files:
+                                # Get the most recently created file
+                                output_file = max(possible_files, key=os.path.getctime)
+                            else:
+                                print("Could not find downloaded audio file")
+                                continue  # Try next client config
+                        else:
+                            output_file = possible_files[0]
+                        
+                        print(f"✅ Success with client {client_config}!")
+                        print(f"Audio saved to file: {output_file}")
+                        return output_file, video_title
+                        
+                    except yt_dlp.utils.DownloadError as e:
+                        print(f"❌ Client config {i} failed: {e}")
+                        if i < len(client_configs):
+                            print(f"Waiting before trying next client...")
+                            time.sleep(random.uniform(3, 6))
+                        continue
+                        
+            except Exception as e:
+                print(f"❌ Configuration {i} failed with error: {e}")
+                continue
+        
+        print("❌ All client configurations failed")
+        return None, None
                 
     except Exception as e:
         print(f"Error occurred while downloading video: {e}")
