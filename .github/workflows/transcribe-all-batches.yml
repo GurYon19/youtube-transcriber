@@ -12,6 +12,9 @@ on:
         required: false
         default: '7'
 
+permissions:
+  contents: write  # Allow writing to repository
+
 jobs:
   build-docker:
     runs-on: ubuntu-latest

@@ -3,6 +3,9 @@ name: YouTube Transcription (Transcript API - Fast & Reliable)
 on:
   workflow_dispatch:  # Manual trigger
 
+permissions:
+  contents: write  # Allow writing to repository
+
 jobs:
   transcribe-api:
     runs-on: ubuntu-latest
